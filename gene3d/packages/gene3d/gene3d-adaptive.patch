@@ -1,0 +1,123 @@
+diff --git a/.gitmodules b/.gitmodules
+index e9d578d..45db540 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -1,6 +1,8 @@
+ [submodule "gvec"]
+ 	path = gvec
+-	url = git@gitlab.mpcdf.mpg.de:gvec-group/gvec.git
++	#url = git@gitlab.mpcdf.mpg.de:gvec-group/gvec.git
++	url = ssh://git@localhost:7889/gvec-group/gvec.git
+ [submodule "diag-python"]
+ 	path = diag-python
+-	url = git@gitlab.mpcdf.mpg.de:GENE/gene-diag.git
++	#url = git@gitlab.mpcdf.mpg.de:GENE/gene-diag.git
++	url = ssh://git@localhost:7889/GENE/gene-diag.git
+diff --git a/diag-python b/diag-python
+index 5bc218f..4f5f89e 160000
+--- a/diag-python
++++ b/diag-python
+@@ -1 +1 @@
+-Subproject commit 5bc218fbc16e17c6b3d14a4cb9f40d4df60181b1
++Subproject commit 4f5f89e3e83b1b4b8b60e352dda5a595e42bc99c-dirty
+diff --git a/gvec b/gvec
+--- a/gvec
++++ b/gvec
+@@ -1 +1 @@
+-Subproject commit 7de422ce7c5d77a88184a25a42c155fea658d186
++Subproject commit 7de422ce7c5d77a88184a25a42c155fea658d186-dirty
+diff --git a/makefiles/hazelhen/hazelhen.mk b/makefiles/hazelhen/hazelhen.mk
+index 87dc635..775f4cf 100644
+--- a/makefiles/hazelhen/hazelhen.mk
++++ b/makefiles/hazelhen/hazelhen.mk
+@@ -38,7 +38,7 @@ MPRUN = aprun -n $(N_PES) -N $(NTASKS) ./$(EXEC)
+ 
+ FFTLIB = fftw
+ PRECISION=double
+-DEBUG= yes
++DEBUG= no
+ 
+ SCALAPACK = yes
+ OPENMP = no
+diff --git a/makefiles/rules.mk b/makefiles/rules.mk
+index 5e0d648..9bf4532 100644
+--- a/makefiles/rules.mk
++++ b/makefiles/rules.mk
+@@ -112,7 +112,6 @@ ifeq ($(COMPILER_REPORTS),yes)
+ endif
+ 
+ ifeq ($(GVEC),yes)
+- GVEC_DIR=./gvec/build
+  LIBS  += -L$(GVEC_DIR)/lib -lgveclib
+  LIBS  += -Wl,-rpath,$(GVEC_DIR)/lib
+  INCPATHS += -I$(GVEC_DIR)/include
+diff --git a/tools/gplot b/tools/gplot
+index fe3a738..2d46cd1 100755
+--- a/tools/gplot
++++ b/tools/gplot
+@@ -17,10 +17,12 @@ xrsc=1.0
+ yrsc=1.0
+ tmax=''
+ tmin=''
++sortinput=0
+ 
+ until [ -z "$1" ]; do
+     if [[ $1 == *"nrg"* ]] && [ -f $1 ]
+     then
++	echo "argument 1 is $1"
+ 	validfiles="$validfiles $1"
+ 	n_spec=`awk '{if (NF==1) {n_spec=0} else {n_spec+=1; print n_spec}}' $1 | tail -1`
+     elif [ "$1" == "-n" ]; then
+@@ -53,12 +55,16 @@ until [ -z "$1" ]; do
+     elif [ "$1" == "-tmin" ];then
+ 	shift
+ 	tmin=$1
++    elif [ "$1" == "-s" ]; then
++	shift
++	sortinput=1
+     else
+ 	echo "usage: gplot <nrg files>
+        optional arguments:
+         -n <nrg column>
+         -f <exp. fit time start>
+         -m <mean fit time start>
++        -s (sort the input nrg files along starttimes)
+ 	-eps (for EPS output)
+ 	-tmax <maximum plotting time>
+ 	-tmin <minimum plotting time>
+@@ -72,6 +78,16 @@ done
+ if [ "$validfiles" != "" ]; then
+     echo "reading and transforming nrg data ..."
+ 
++    if [ $sortinput == 1 ]; then
++	if [ -e sortfile ]; then
++	    rm sortfile
++	fi
++	for f in $validfiles; do
++	    starttime=$(head -n 1 $f)
++	    echo "$starttime $f" >>sortfile
++	done
++	validfiles=$(sort -n sortfile | sed "s/^ *[0-9.]* \(.*\)/\1/")
++    fi
+     cat $validfiles | awk 'BEGIN {lasttime=-1} {if (NF==1) {time=$1; if (time<lasttime) {print "\n\n"}; lasttime=time} else print time,$0};' > $tmpdatfile
+ 
+     Nruns=`grep -c '^$' $tmpdatfile`
+@@ -125,15 +141,15 @@ if [ "$validfiles" != "" ]; then
+ # 'Q_es / [p0 v_t,ref rho_ref^2 / L_perp^2]'
+     irun=0
+     cur_spec=0
+-    lc=0
++    lc=1
+ 
+     while [ $irun -lt $Nruns ]; do
+ 	cur_spec=0
+ 	while [ $cur_spec -lt $n_spec ]; do
+ 	    if [[ $irun -eq 0 && $cur_spec -eq 0 ]]; then
+-		echo "plot '$tmpdatfile' i $irun ev $n_spec::$cur_spec u ("\$"1*$xrsc):("\$"$nrg_col*$yrsc) tit 'run $irun, species $cur_spec' w l lt $lc lw 7" >> $tmppltfile
++		echo "plot '$tmpdatfile' i $irun ev $n_spec::$cur_spec u ("\$"1*$xrsc):("\$"$nrg_col*$yrsc) tit 'run $irun, species $cur_spec' w l lt 1 lc $lc lw 7" >> $tmppltfile
+ 	    else
+-		echo "replot '$tmpdatfile' i $irun ev $n_spec::$cur_spec u ("\$"1*$xrsc):("\$"$nrg_col*$yrsc) tit 'run $irun, species $cur_spec' w l lt $lc lw 7" >> $tmppltfile
++		echo "replot '$tmpdatfile' i $irun ev $n_spec::$cur_spec u ("\$"1*$xrsc):("\$"$nrg_col*$yrsc) tit 'run $irun, species $cur_spec' w l lt 1 lc $lc lw 7" >> $tmppltfile
+ 	    fi
+ 	    cur_spec=`expr $cur_spec + 1`
+ 	    lc=`expr $lc + 1`
