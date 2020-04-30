@@ -1,0 +1,11 @@
+spack:
+    specs:
+      - cmake
+      - fftw
+      - slepc@3.11.2
+      - petsc@3.11.2
+      - hdf5
+      - lrzsys.intel-mpi
+      - lrz.intel-mkl
+      - netcdf-fortran
+    concretization: together
