@@ -1,7 +1,7 @@
 from spack import *
 
 
-class Gene3d(CMakePackage):
+class Gene3d(CMakePackage):#MakefilePackage):
     """GENE (Gyrokinetic Electromagnetic Numerical Experiment) 
     is an open source plasma microturbulence code which can be used 
     to efficiently compute gyroradius-scale fluctuations and the 
@@ -14,8 +14,7 @@ class Gene3d(CMakePackage):
     version('master', branch='master')
     version('for-exahd-adaptive', commit='29efaeecf7fc5d1f77c306e5451879d3e4f87f03')
     patch('gene3d-adaptive.patch', when='@for-exahd-adaptive')
-
-    #TODO use   
+    
     variant('futils', default=False, description='Enable FUTILS')
     variant('gvec', default=True, description='Enable GVEC')
     variant('utests', default=False, description='Enable Unit-Tests with pFUnit')
@@ -29,10 +28,23 @@ class Gene3d(CMakePackage):
     extends('python', when='+python')
     depends_on('python', when='+python')
 
-    depends_on('slepc@3.7.4', when='@for-exahd-adaptive')
-    depends_on('petsc@3.7.6.2 +shared +mpi +complex +fftw', when='@for-exahd-adaptive')
-    depends_on('slepc', when='@master')
-    depends_on('petsc +shared +mpi +complex +fftw', when='@master')
+    depends_on('mpi')
+    depends_on('hdf5 +mpi +hl')
+    depends_on('fftw')
+    depends_on('blas')
+    depends_on('scalapack')
+
+    #depends_on('slepc@3.7.4', when='@for-exahd-adaptive')
+
+    # spack patch to fix issue when installing petsc with intel-mpi
+    # cf. https://gitlab.com/petsc/petsc/-/issues/517
+    # may need to apply this patch to spack itself -- but doesn't seem to work any more...
+    # use newer version also for adaptive?
+    #depends_on('petsc@3.7.6 +shared +mpi +complex +fftw', when='@for-exahd-adaptive')
+    #    patches=patch('https://github.com/citibeth/spack/commit/16ce7d35d0790ce79c5e6e544b4b6775e66d6839.patch')
+
+    depends_on('slepc@:3.11.2')#, when='@master')
+    depends_on('petsc@:3.11.2 +shared +mpi')#, when='@master')
 
 
     def cmake_args(self):
